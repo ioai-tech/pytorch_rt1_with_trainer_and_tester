@@ -65,9 +65,9 @@ class TF_MultiHeadAttention(nn.Module):
         v = v.transpose(1,2) # calculate attention using function we will define next
 
         if self.return_attention_scores:
-            attention_output, score = attention(q, k, v, self.key_dim, mask, self.dropout, self.return_attention_scores) # attention_output: (bs, h, sl, value_dim), score: (bs, h, sl, sl)
+            attention_output, score = self.attention(q, k, v, self.key_dim, mask, self.dropout, self.return_attention_scores) # attention_output: (bs, h, sl, value_dim), score: (bs, h, sl, sl)
         else:
-            attention_output = attention(q, k, v, self.key_dim, mask, self.dropout, self.return_attention_scores) # (bs, h, sl, value_dim)
+            attention_output = self.attention(q, k, v, self.key_dim, mask, self.dropout, self.return_attention_scores) # (bs, h, sl, value_dim)
         
         # concatenate heads and put through final linear layer
         concat = attention_output.transpose(1,2).contiguous().view(bs, -1, self.h * self.value_dim) # (bs, sl, heads * value_dim)
@@ -79,34 +79,34 @@ class TF_MultiHeadAttention(nn.Module):
             return output
 
 
-def attention(q, k, v, key_dim, mask=None, dropout=None, return_attention_scores=False):
-    
-    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(key_dim)
-    # q: (bs, h, sl, key_dim)
-    # k.transpose(-2, -1) : (bs, h, key_dim, sl)
-    # score: (bs, h, sl, sl)
-    
-    if mask is not None:
-        # mask: (sl, sl)
-        mask = mask.unsqueeze(0).unsqueeze(1)
-        scores = scores.masked_fill(mask == 0, -1e9)
-    
-    scores = F.softmax(scores, dim=-1)
+    def attention(self, q, k, v, key_dim, mask=None, dropout=None, return_attention_scores=False):
+        
+        scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(key_dim)
+        # q: (bs, h, sl, key_dim)
+        # k.transpose(-2, -1) : (bs, h, key_dim, sl)
+        # score: (bs, h, sl, sl)
+        
+        if mask is not None:
+            # mask: (sl, sl)
+            mask = mask.unsqueeze(0).unsqueeze(1).to(scores.device)
+            scores = scores.masked_fill(mask == 0, -1e9)
+        
+        scores = F.softmax(scores, dim=-1)
 
-    
-    if dropout is not None:
-        scores = dropout(scores)
+        
+        if dropout is not None:
+            scores = dropout(scores)
 
 
-    output = torch.matmul(scores, v)
-    # score: (bs, h, sl, sl)
-    # v : (bs, h, sl, value_dim)
-    # output: (bs, h, sl, value_dim)
+        output = torch.matmul(scores, v)
+        # score: (bs, h, sl, sl)
+        # v : (bs, h, sl, value_dim)
+        # output: (bs, h, sl, value_dim)
 
-    if return_attention_scores:
-        return output, scores
-    else:
-        return output
+        if return_attention_scores:
+            return output, scores
+        else:
+            return output
 
 # input_size and output_size: (bs, sl, feed_forward_size)
 class _TransformerLayer(nn.Module):
@@ -118,7 +118,7 @@ class _TransformerLayer(nn.Module):
             dropout_rate: float = 0.1,
             return_attention_scores: bool = False):
 
-        super(_TransformerLayer, self).__init__()
+        super().__init__()
         self._return_attention_scores = return_attention_scores
 
         self.norm_1 = nn.LayerNorm(feed_forward_size)
@@ -153,11 +153,10 @@ class Transformer(nn.Module):
             vocab_size: int = 256, # Dimensionality of tokens from the output layer. This is also dimensionality of tokens from the input layer.
             input_token_emb_dim: int = 512, # embedding dim of input tokens.
             return_attention_scores: bool = False,
-            max_seq_len: int = 256 # Maximum sequence length. This Transformer can't receive tokens that are more than this number.
+            max_seq_len: int = 256, # Maximum sequence length. This Transformer can't receive tokens that are more than this number.
             ):
         super(Transformer, self).__init__()
 
-        # issue#3 use nn.ModuleList
         self._layers = nn.ModuleList([
         _TransformerLayer(  # pylint: disable=g-complex-comprehension
             layer_size=layer_size,

@@ -20,7 +20,7 @@
 import unittest
 import torch
 
-from pytorch_robotics_transformer.transformer import Transformer
+from maruya24_rt1.transformer import Transformer
 from absl.testing import parameterized
 
 class TransformerTest(parameterized.TestCase, unittest.TestCase):

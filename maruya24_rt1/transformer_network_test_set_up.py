@@ -28,7 +28,7 @@ import torch
 import unittest
 from collections import OrderedDict
 
-BATCH_SIZE = 2
+BATCH_SIZE = 3
 TIME_SEQUENCE_LENGTH = 3
 HEIGHT = 256
 WIDTH = 320

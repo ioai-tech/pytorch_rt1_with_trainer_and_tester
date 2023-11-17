@@ -114,8 +114,8 @@ class RT1ActionTokenizer():
                 token = a #  Discrete action is already token. The size is () or (batch,)
                 token = a.unsqueeze(-1) # The size is (1,) or (batch, 1). Discrete action will be one token.
             else: # if a is Box, size of a is (action_size) or (batch, action_size).
-                low = torch.tensor(a_space.low)
-                high = torch.tensor(a_space.high)
+                low = torch.tensor(a_space.low).to(a.device)
+                high = torch.tensor(a_space.high).to(a.device)
                 a = torch.clamp(a, low, high)
                 # Normalize the action.
                 token = (a - low) / (high - low)

@@ -1,4 +1,4 @@
-# Subject to the terms and conditions of the Apache License, Version 2.0 that the original code follows, 
+# Subject to the terms and conditions of the Apache License, Version 2.0 that the original code follows,
 # I have retained the following copyright notice written on it.
 
 # Copyright 2022 Google LLC
@@ -18,7 +18,6 @@
 # You can find the original code from here[https://github.com/google-research/robotics_transformer].
 
 
-
 """Encoder based on Efficientnet."""
 
 
@@ -30,27 +29,39 @@ import torch
 import torch.nn as nn
 from typing import Optional
 
-from pytorch_robotics_transformer.film_efficientnet.film_efficientnet_encoder import EfficientNetB3
-from pytorch_robotics_transformer.film_efficientnet.film_conditioning_layer import FilmConditioning
+from maruya24_rt1.film_efficientnet.film_efficientnet_encoder import EfficientNetB3
+from maruya24_rt1.film_efficientnet.film_conditioning_layer import FilmConditioning
+
 
 class EfficientNetEncoder(nn.Module):
-    def __init__(self,
-                 token_embedding_size: int = 512,
-                 weights: Optional[str] = 'imagenet',
-                 early_film: bool = True,
-                 include_top: bool = False,
-                 pooling: bool = True):
+    def __init__(
+        self,
+        token_embedding_size: int = 512,
+        language_embedding_size: int = 512,
+        weights: Optional[str] = "imagenet",
+        early_film: bool = True,
+        include_top: bool = False,
+        pooling: bool = True,
+    ):
         super().__init__()
-        
-        self.conv1x1 = nn.Conv2d(in_channels=1536, # If we use EfficientNetB3 and input image has 3 channels, in_channels is 1536.
-                                 out_channels=token_embedding_size,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0,
-                                 bias=False
-                                 )
-        self.net = EfficientNetB3(weights=weights, include_top=include_top, include_film=early_film)
-        self.film_layer = FilmConditioning(num_channels=token_embedding_size, text_vector_size=512)
+
+        self.conv1x1 = nn.Conv2d(
+            in_channels=1536,  # If we use EfficientNetB3 and input image has 3 channels, in_channels is 1536.
+            out_channels=token_embedding_size,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=False,
+        )
+        self.net = EfficientNetB3(
+            weights=weights,
+            include_top=include_top,
+            include_film=early_film,
+            text_embed_dim=language_embedding_size,
+        )
+        self.film_layer = FilmConditioning(
+            num_channels=token_embedding_size, text_embed_dim=language_embedding_size
+        )
 
         self.early_film = early_film
         self._pooling = pooling
@@ -61,7 +72,6 @@ class EfficientNetEncoder(nn.Module):
             return self.net(image, context)
         return self.net(image)
 
-
     def forward(self, image: torch.Tensor, context: torch.Tensor) -> torch.Tensor:
         features = self._encode(image, context)
         features = self.conv1x1(features)
@@ -71,4 +81,4 @@ class EfficientNetEncoder(nn.Module):
             return features
 
         # Global average pool.
-        return torch.mean(features, dim=(2,3))
+        return torch.mean(features, dim=(2, 3))

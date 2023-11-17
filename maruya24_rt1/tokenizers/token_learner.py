@@ -1,4 +1,4 @@
-# Subject to the terms and conditions of the Apache License, Version 2.0 that the original code follows, 
+# Subject to the terms and conditions of the Apache License, Version 2.0 that the original code follows,
 # I have retained the following copyright notice written on it.
 
 # Copyright 2022 Google LLC
@@ -23,43 +23,48 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class TokenLearnerModule(nn.Module):
-    def __init__(self,
-                inputs_channels: int,
-                num_tokens: int, 
-                bottleneck_dim: int = 64,
-                dropout_rate: float = 0.):
+    def __init__(
+        self,
+        inputs_channels: int,
+        num_tokens: int,
+        bottleneck_dim: int = 64,
+        dropout_rate: float = 0.0,
+    ):
         super().__init__()
 
         self.layerNorm = nn.LayerNorm(inputs_channels)
 
-        self.conv1 = nn.Conv2d(in_channels=inputs_channels,
-                               out_channels=bottleneck_dim,
-                               kernel_size=1,
-                               stride=1,
-                               padding=0
-                               )
+        self.conv1 = nn.Conv2d(
+            in_channels=inputs_channels,
+            out_channels=bottleneck_dim,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
 
-        self.gelu1 = nn.GELU(approximate='tanh')
+        self.gelu1 = nn.GELU(approximate="tanh")
 
         if dropout_rate > 0:
             self.dropout1 = nn.Dropout2d(dropout_rate)
         else:
             self.dropout1 = nn.Identity()
 
-        self.conv2 = nn.Conv2d(in_channels=bottleneck_dim,
-                               out_channels=num_tokens,
-                               kernel_size=1,
-                               stride=1,
-                               padding=0
-                               )
+        self.conv2 = nn.Conv2d(
+            in_channels=bottleneck_dim,
+            out_channels=num_tokens,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
 
         if dropout_rate > 0:
             self.dropout2 = nn.Dropout2d(dropout_rate)
         else:
             self.dropout2 = nn.Identity()
 
-    # inputs: [bs, c, h, w] or [bs * seq, c, h, w] 
+    # inputs: [bs, c, h, w] or [bs * seq, c, h, w]
     # seq is time-series length such as frame
     def forward(self, inputs: torch.Tensor):
         # layer norm
@@ -70,14 +75,14 @@ class TokenLearnerModule(nn.Module):
         x = self.gelu1(self.conv1(x))
         x = self.dropout1(x)
         x = self.conv2(x)
-        x = self.dropout2(x) # (bs, num_tokens, h, w)
+        x = self.dropout2(x)  # (bs, num_tokens, h, w)
 
-        x = x.view(x.shape[0], x.shape[1], -1) # (bs, num_tokens, h*w)
+        x = x.view(x.shape[0], x.shape[1], -1)  # (bs, num_tokens, h*w)
         weights_maps = F.softmax(x, dim=-1)
 
         # create tokens
         bs, c, h, w = inputs.shape
-        inputs = inputs.permute(0, 2, 3, 1).view(bs, h*w , c)
+        inputs = inputs.permute(0, 2, 3, 1).view(bs, h * w, c)
 
         tokens = torch.bmm(weights_maps, inputs)
         # weighs_maps: [bs, n_token, h*w]
@@ -93,4 +98,3 @@ class TokenLearnerModule(nn.Module):
         # reshape (1, 1, c), then we get a learned token, as shown in Fig. 1 in tokenlearner paper.
         # We do the computation using all other weight map, then we get all tokens.
         return tokens
-
