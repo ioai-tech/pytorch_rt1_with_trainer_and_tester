@@ -27,7 +27,7 @@ The training configuration for RT-1 includes various parameters that influence t
 - **Mode:** Training mode, options ['train', 'eval']
 - **Device:** CUDA device for computation, options ['cpu', 'cuda']
 - **Data Path:** Path to the dataset/[robotname]_[taskname]
-- **Camera Views:** Views used in training (`front`, `topdown`, `side`)
+- **Camera Views:** Views used in training (`front`, `wrist`, ... see these in dataset folder)
 - **Log Directory:** Directory to store logs
 - **Time Sequence Length:** Length of the time sequence (e.g., 6), RT-1 takes history timesteps of images as part of model input, which means `1` frame of current timestep image and `time_sequence_length - 1` frames of history image.
 - **Learning Rate:** Initial learning rate
@@ -50,7 +50,7 @@ The training configuration for RT-1 includes various parameters that influence t
 {
     "mode": "train",
     "device": "cuda",
-    "data_path": "/mnt/data/io_rt1_dataset/20231107_multiarm_pick_r10_cube151212/Panda_pick",
+    "data_path": "IO_pybullet_open_dataset/Panda_pick",
     "cam_view" : ["front", "wrist"],
     "log_dir": "/mnt/logs_1",
     "time_sequence_length": 6,
@@ -58,7 +58,7 @@ The training configuration for RT-1 includes various parameters that influence t
     "batch_size": 6,
     "epochs": 50,
     "resume": false,
-    "resume_from_checkpoint": "/mnt/logs_1/1699706509/40-checkpoint.pth",
+    "resume_from_checkpoint": "",
     "predicting_next_ts": true,
     "world_size": 4,
     "dist_url": "env://",
@@ -89,6 +89,8 @@ The training configuration for RT-1 includes various parameters that influence t
 }
 
 ```
+Pretrained weights trained on settings above can be downloaded from [pretrained_weights](https://drive.google.com/uc?export=download&id=1USLqOfqYfqIrigx1hkY37SGyrLJuaPwc), setting "resume_from_checkpoint" to path of pretrained weight and setting "resume" to True to resume from the checkpoint.
+
 
 ## Limitations
 
@@ -118,6 +120,12 @@ Our dataset follows a specific file structure:
 
 Simliar to Robomimic's lift mission [robomimic](https://robomimic.github.io/), we collected dataset from third-person and first-person perspectives.
 
-You can download our sample dataset collected from PyBullet, converted from RT-1's original dataset.
+You can download our dataset collected from PyBullet [IO_open_dataset](https://drive.google.com/uc?export=download&id=1RoTxnipQf2SIXqzvroDOXAleNvvNIIwZ).
 
+## Contacts
+
+Join wechat group for discussion
+
+
+![wechat group](img/wechatgroup.jpg)
 
