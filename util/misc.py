@@ -647,3 +647,32 @@ def calculate_completion_rate(file_path):
 
     # Return the completion rates for task_0 and task_1
     return completion_rate_0, completion_rate_1
+
+def merge_video(epoch, vid_dir):
+    fns = os.listdir(vid_dir)
+    for fn in fns:
+        if not fn.endswith('mp4'):
+            fns.remove(fn)
+        elif not fn.startswith('e' + str(epoch) + '_'):
+            fns.remove(fn)
+    fns.sort()
+    vid_fn_list = os.path.join(vid_dir, 'videos.txt')
+    with open(os.path.join(vid_fn_list), 'w+') as f:
+        lines = []
+        for fn in fns:
+            if fn.endswith('mp4'):
+                lines.append("""file '""" + fn + """'""" +'\n')
+        f.writelines(lines)
+        f.close()
+    # os.system('cd ' + dir)
+    merged_vid_fn = os.path.join(vid_dir, str(epoch) + 'merged.mp4')
+    fast_vid_fn = os.path.join(vid_dir, str(epoch) + 'fast.mp4')
+    os.system('ffmpeg -f concat -safe 0 -i ' + vid_fn_list + ' -c copy ' + merged_vid_fn)
+    time.sleep(1)
+    os.system('ffmpeg -i ' + merged_vid_fn + ' -an -filter:v "setpts=0.1*PTS" ' + fast_vid_fn)
+    time.sleep(1)
+    print('************* remove: ', vid_fn_list, ' *************')
+    os.remove(vid_fn_list)
+    for fn in fns:
+        print('************* remove: ', os.path.join(vid_dir, fn), ' *************')
+        os.remove(os.path.join(vid_dir, fn))

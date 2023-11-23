@@ -37,7 +37,7 @@ def load_config_from_json(json_path):
 
 class Trainer:
     def __init__(self, args):
-        self.set_seed()
+        utils.set_seed()
         self.args = args
         self.train_dataset, self.val_dataset = build_dataset(
             data_path=self.args["data_path"],
@@ -105,10 +105,6 @@ class Trainer:
 
     def train(self):
         print("training")
-
-        # Set random seed for reproducibility
-        self.set_seed()
-
         # Create dataloader based on distributed or single-machine settings
         if self.args["distributed"]:
             # Batch sampler for distributed training
@@ -499,7 +495,8 @@ class Trainer:
                 str(self.args["num_val_threads"]),
             ]
         )
-        torch.distributed.barrier()
+        if self.args["distributed"]:
+            torch.distributed.barrier()
         if utils.is_main_process():
             complete_rate_grab, complete_rate_lift = utils.calculate_completion_rate(
                 os.path.join(val_checkpoint_dir, val_epoch + ".txt")

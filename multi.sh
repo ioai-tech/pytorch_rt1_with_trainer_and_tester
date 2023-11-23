@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Assigning the Python script name to a variable
-python_script="test_model.py"
+python_script="IO_evaluator.py"
 
 # Getting input arguments from the command line
 epoch=$1

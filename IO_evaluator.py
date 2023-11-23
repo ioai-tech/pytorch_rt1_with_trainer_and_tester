@@ -170,7 +170,7 @@ class SimTester:
         )
         if abs(ee_z_pos - tar_obj_z_pos) < 0.035 and len(contact_points) > 0:
             self.episode_succ[0] = True
-        if ee_z_pos - tar_obj_z_pos > 0.1 and len(contact_points) > 0:
+        if ee_z_pos - tar_obj_z_pos > 0.08 and len(contact_points) > 0:
             self.episode_succ[1] = True
         return ee_z_pos - tar_obj_z_pos
 

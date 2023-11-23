@@ -2,9 +2,7 @@ import pybullet as p
 import numpy as np
 import random
 import pybullet_data as pdata
-from utils import debug_draw_pose
 import math
-from robot_descriptions.loaders.pybullet import load_robot_description
 
 
 class RobotBase(object):

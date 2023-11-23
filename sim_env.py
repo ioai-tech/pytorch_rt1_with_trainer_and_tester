@@ -9,7 +9,7 @@ import os
 import glob
 import pybullet as p
 import threading
-from panda_robot import Panda
+from robots import Panda
 from PIL import Image
 
 # Dictionary defining task names and their corresponding environment classes

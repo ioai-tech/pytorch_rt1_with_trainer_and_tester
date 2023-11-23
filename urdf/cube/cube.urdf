@@ -15,7 +15,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-				<mesh filename="cube.obj" scale="1.5 1.2 1.2"/>
+				<mesh filename="cube.obj" scale="1.2 1.2 1.2"/>
       </geometry>
        <material name="white">
         <color rgba="1 1 1 1"/>
@@ -25,7 +25,7 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <!-- for data collection -->
-        <mesh filename="cube.obj" scale="1.5 1.2 1.2"/>
+        <mesh filename="cube.obj" scale="1.2 1.2 1.2"/>
         <!-- for testing -->
         <!-- <box size="1 1 1"/> -->
       </geometry>
