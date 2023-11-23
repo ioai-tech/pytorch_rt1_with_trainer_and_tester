@@ -198,7 +198,7 @@ class Trainer:
                     # Perform training steps
                     optimizer.zero_grad()
                     network_without_ddp.set_actions(
-                        self.dict_to_device(action, self.device)
+                        utils.dict_to_device(action, self.device)
                     )
                     network_state = batched_space_sampler(
                         network_without_ddp._state_space,
@@ -208,8 +208,8 @@ class Trainer:
                     if self.args["using_proprioception"]:
                         obs = self.calc_fk(obs)
                     output_actions, network_state = network(
-                        self.dict_to_device(obs, self.device),
-                        self.dict_to_device(network_state, self.device),
+                        utils.dict_to_device(obs, self.device),
+                        utils.dict_to_device(network_state, self.device),
                     )
 
                     loss = network_without_ddp.get_actor_loss().mean()
@@ -267,6 +267,7 @@ class Trainer:
                     else network.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "scheduler_state_dict": scheduler.state_dict(),
+                    "action_space": self._action_space,
                     "epoch": e,
                 }
                 utils.save_on_master(checkpoint, checkpoint_filename)
@@ -323,7 +324,10 @@ class Trainer:
     @torch.no_grad()
     def val(self, network_without_ddp, epoch, val_dataset, sampler_val=None):
         # Create directories to store validation results if they don't exist
-        if not os.path.isdir(os.path.join(self.checkpoint_dir, "val_results")) and utils.is_main_process():
+        if (
+            not os.path.isdir(os.path.join(self.checkpoint_dir, "val_results"))
+            and utils.is_main_process()
+        ):
             os.mkdir(os.path.join(self.checkpoint_dir, "val_results"))
 
         # Set up dataloader based on distributed or single-machine settings
@@ -346,7 +350,9 @@ class Trainer:
         model_output_one_episode = []
         # Loop through the validation dataset
         for idx, (obs, action) in tqdm(
-            enumerate(val_dataloader), desc="validation", total=len(val_dataset) // self.args['world_size']
+            enumerate(val_dataloader),
+            desc="validation",
+            total=len(val_dataset) // self.args["world_size"],
         ):
             # Initialize network state
             network_state = batched_space_sampler(
@@ -365,10 +371,10 @@ class Trainer:
             if self.args["using_proprioception"]:
                 obs = self.calc_fk(obs)
             for i_ts in range(self.args["time_sequence_length"]):
-                ob = self.retrieve_single_timestep(obs, i_ts)
+                ob = utils.retrieve_single_timestep(obs, i_ts)
                 output_action, network_state = network_without_ddp(
-                    self.dict_to_device(ob, self.device),
-                    self.dict_to_device(network_state, self.device),
+                    utils.dict_to_device(ob, self.device),
+                    utils.dict_to_device(network_state, self.device),
                 )
                 output_actions.append(output_action)
                 action_predictions_logits.append(
@@ -417,7 +423,7 @@ class Trainer:
                     + ".pdf"
                 )
                 fn = os.path.join(self.checkpoint_dir, "val_results", fn)
-                self.visualize(gt_one_episode, model_output_one_episode, fn)
+                utils.visualize(gt_one_episode, model_output_one_episode, fn)
                 print("result written into: ", fn)
                 gt_one_episode = []
                 model_output_one_episode = []
@@ -463,62 +469,44 @@ class Trainer:
         pass
 
     def evaluate(self):
-        pass
+        val_epoch = self.args["resume_from_checkpoint"].split("/")[-1].split("-")[0]
 
-    def calculate_completion_rate(self, file_path):
-        pass
-
-    @torch.no_grad()
-    def visualize(self, all_gt, all_output, fn):
-        all_output = all_output[:, -1, :]
-        all_gt = all_gt[:, -1, :]
-        title = [
-            "terminate_episode_l1_error: ",
-            "cmd_pos_x_l1_error: ",
-            "cmd_pos_y_l1_error: ",
-            "cmd_pos_z_l1_error: ",
-            "cmd_rot_x_l1_error: ",
-            "cmd_rot_y_l1_error: ",
-            "cmd_rot_z_l1_error: ",
-            "cmd_gripper_l1_error: ",
-        ]
-        plt.figure(figsize=(22, 12))
-        for i in range(8):
-            c = utils.generate_random_color()
-            plt.subplot(2, 4, i + 1)
-            val_loss = F.l1_loss(
-                torch.from_numpy(all_output[:, i]).float(),
-                torch.from_numpy(all_gt[:, i]).float(),
+        val_checkpoint_dir = "/".join(
+            self.args["resume_from_checkpoint"].split("/")[:-1]
+        )
+        with open(
+            os.path.join(val_checkpoint_dir, val_epoch + "_val_episodes.txt"), "w"
+        ) as f:
+            for val_episode_dir in self.val_dataset._episode_dirs:
+                f.write(val_episode_dir + "\n")
+        with open(os.path.join(val_checkpoint_dir, val_epoch + ".txt"), "w") as f:
+            pass
+        cam_views = ""
+        for i, cmv in enumerate(self.args["cam_view"]):
+            cam_views += cmv
+            if i != (len(self.args["cam_view"]) - 1):
+                cam_views += "_"
+        subprocess.call(
+            [
+                "bash",
+                "multi.sh",
+                val_epoch,
+                val_checkpoint_dir,
+                self.args["resume_from_checkpoint"].split("/")[-1],
+                str(self.args["gpu"]),
+                cam_views,
+                str(int(self.args["using_proprioception"])),
+                str(self.args["num_val_threads"]),
+            ]
+        )
+        torch.distributed.barrier()
+        if utils.is_main_process():
+            complete_rate_grab, complete_rate_lift = utils.calculate_completion_rate(
+                os.path.join(val_checkpoint_dir, val_epoch + ".txt")
             )
-            plt.title(title[i] + str(val_loss.cpu().data.numpy()))
-            plt.plot(all_gt[:, i], c=c, label="gt")
-            plt.plot(all_output[:, i], c=c, linestyle="dashed", label="output")
-            plt.xlabel("timesteps")
-            plt.ylabel("action_tokens")
-            plt.grid()
-            plt.legend()
-        plt.savefig(fn, format="pdf")
-        plt.clf()
-        plt.close()
-
-    def retrieve_single_timestep(self, dict_obj, idx):
-        """
-        get all the values in the [dict_obj] at index [idx]
-        v[:, idx], all the values in the dictionary at second dimension needs to be same
-        """
-        dict_obj_return = copy.deepcopy(dict_obj)
-        for k, v in dict_obj.items():
-            dict_obj_return[k] = v[:, idx]
-        return dict_obj_return
-
-    def dict_to_device(self, dict_obj, device):
-        """
-        put all the values in the [dict_obj] to [device]
-        """
-        for k, v in dict_obj.items():
-            assert isinstance(v, torch.Tensor)
-            dict_obj[k] = v.to(device)
-        return dict_obj
+            print("complete_rate_grab:", complete_rate_grab)
+            print("complete_rate_lift:", complete_rate_lift)
+            utils.merge_video(val_epoch, os.path.join(val_checkpoint_dir, "vids"))
 
     def make_log_dir(self, log_dir):
         """
@@ -551,18 +539,6 @@ class Trainer:
         if utils.is_main_process():
             os.mkdir(checkpoint_dir)
         return checkpoint_dir, tensorboard_dir
-
-    def set_seed(self, seed=3407):
-        """
-        set random seed to reproduce results
-        """
-        np.random.seed(seed)
-        random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
 
 
 if __name__ == "__main__":

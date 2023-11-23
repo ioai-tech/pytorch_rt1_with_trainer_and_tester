@@ -5,6 +5,7 @@ Misc functions, including distributed helpers.
 Mostly copy-paste from torchvision references.
 """
 import os
+import copy
 import random
 import subprocess
 import time
@@ -13,9 +14,12 @@ import datetime
 import pickle
 from packaging import version
 from typing import Optional, List
+import matplotlib.pyplot as plt
 
+import numpy as np
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 from torch import Tensor
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
@@ -525,3 +529,121 @@ def generate_random_color():
     color_hex = "#{:02X}{:02X}{:02X}".format(r, g, b)
 
     return color_hex
+
+
+@torch.no_grad()
+def visualize(all_gt, all_output, fn):
+    all_output = all_output[:, -1, :]
+    all_gt = all_gt[:, -1, :]
+    title = [
+        "terminate_episode_l1_error: ",
+        "cmd_pos_x_l1_error: ",
+        "cmd_pos_y_l1_error: ",
+        "cmd_pos_z_l1_error: ",
+        "cmd_rot_x_l1_error: ",
+        "cmd_rot_y_l1_error: ",
+        "cmd_rot_z_l1_error: ",
+        "cmd_gripper_l1_error: ",
+    ]
+    plt.figure(figsize=(22, 12))
+    for i in range(8):
+        c = generate_random_color()
+        plt.subplot(2, 4, i + 1)
+        val_loss = F.l1_loss(
+            torch.from_numpy(all_output[:, i]).float(),
+            torch.from_numpy(all_gt[:, i]).float(),
+        )
+        plt.title(title[i] + str(val_loss.cpu().data.numpy()))
+        plt.plot(all_gt[:, i], c=c, label="gt")
+        plt.plot(all_output[:, i], c=c, linestyle="dashed", label="output")
+        plt.xlabel("timesteps")
+        plt.ylabel("action_tokens")
+        plt.grid()
+        plt.legend()
+    plt.savefig(fn, format="pdf")
+    plt.clf()
+    plt.close()
+
+
+def retrieve_single_timestep(dict_obj, idx):
+    """
+    get all the values in the [dict_obj] at index [idx]
+    v[:, idx], all the values in the dictionary at second dimension needs to be same
+    """
+    dict_obj_return = copy.deepcopy(dict_obj)
+    for k, v in dict_obj.items():
+        dict_obj_return[k] = v[:, idx]
+    return dict_obj_return
+
+
+def dict_to_device(dict_obj, device):
+    """
+    put all the values in the [dict_obj] to [device]
+    """
+    for k, v in dict_obj.items():
+        assert isinstance(v, torch.Tensor)
+        dict_obj[k] = v.to(device)
+    return dict_obj
+
+
+def set_seed(seed=3407):
+    """
+    set random seed to reproduce results
+    """
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+
+def calculate_completion_rate(file_path):
+    """
+    Calculates the completion rates for two tasks based on a specified file.
+
+    Parameters:
+    - file_path (str): Path to the file containing task completion information.
+
+    Returns:
+    - completion_rate_0 (float): Completion rate for task_0.
+    - completion_rate_1 (float): Completion rate for task_1.
+    """
+
+    # Initialize variables to count completed and total tasks for task_0 and task_1
+    task_0_completed = 0
+    task_0_total = 0
+    task_1_completed = 0
+    task_1_total = 0
+
+    # Open the specified file for reading
+    with open(file_path, "r") as file:
+        # Loop through each line in the file
+        for line in file:
+            line = line.strip()  # Remove leading/trailing whitespace
+            # Check the first character of the line for task_0 completion status
+            if line[0] in ["0", "1"]:
+                task_0_total += 1  # Increment total task_0 count
+                if line[0] == "1":
+                    task_0_completed += 1  # Increment completed task_0 count
+            # Check the second character of the line for task_1 completion status
+            if line[1] in ["0", "1"]:
+                task_1_total += 1  # Increment total task_1 count
+                if line[1] == "1":
+                    task_1_completed += 1  # Increment completed task_1 count
+
+    # Calculate completion rates for task_0 and task_1
+    if task_1_total == 0 or task_0_total == 0:
+        completion_rate_0 = 0.0  # Set completion rate to 0 if total count is 0
+        completion_rate_1 = 0.0  # Set completion rate to 0 if total count is 0
+    else:
+        completion_rate_0 = (
+            task_0_completed / task_0_total
+        )  # Calculate completion rate for task_0
+        completion_rate_1 = (
+            task_1_completed / task_1_total
+        )  # Calculate completion rate for task_1
+
+    # Return the completion rates for task_0 and task_1
+    return completion_rate_0, completion_rate_1
