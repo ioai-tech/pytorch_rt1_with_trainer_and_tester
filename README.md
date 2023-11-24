@@ -4,6 +4,8 @@
 
 This repository contains complete PyTorch implementation for **RT-1** based on the paper: [RT-1 Paper](https://arxiv.org/abs/2212.06817) and implementation of RT-1 model by **maruya24's RT-1**: [maruya24's RT-1 GitHub](https://github.com/maruya24/pytorch_robotics_transformer). Our implementation complete the training, validation pipeline, and soon-to-come evaluation pipeline.
 
+**Try our implementation in [Colab](https://drive.google.com/file/d/18nWZ6pgy2_0fS8BjZsUiTjOFaE6WXMi3/view?usp=sharing)**
+
 ## Acknowledgements
 
 - **maruya24**: For their work on RT-1, which serves as the foundation for this implementation - [maruya24's RT-1 GitHub](https://github.com/maruya24/pytorch_robotics_transformer)
