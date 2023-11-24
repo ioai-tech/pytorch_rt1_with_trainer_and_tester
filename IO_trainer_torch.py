@@ -42,6 +42,9 @@ class Trainer:
         utils.set_seed()
         self.args = args
         self.args = utils.init_distributed_mode(self.args)
+        self.checkpoint_dir, self.tensorboard_dir = self.make_log_dir(
+            self.args["log_dir"]
+        )
         if self.args["mode"] == "eval":
             self.args["num_val_episode"] = (
                 self.args["num_eval_threads"] * self.args["world_size"]
@@ -57,9 +60,7 @@ class Trainer:
                 "language_embedding_size"
             ],
         )
-        self.checkpoint_dir, self.tensorboard_dir = self.make_log_dir(
-            self.args["log_dir"]
-        )
+        
         if self.args["distributed"]:
             self.sampler_train = DistributedSampler(self.train_dataset, shuffle=True)
             self.sampler_val = DistributedSampler(self.val_dataset, shuffle=False)
@@ -92,11 +93,12 @@ class Trainer:
             )
         )
         self.args["action_space"] = str(self._action_space)
-        with open(
-            os.path.join(self.checkpoint_dir, self.train_name + ".json"), "w"
-        ) as json_file:
-            json.dump(self.args, json_file)
-        json_file.close()
+        if utils.is_main_process():
+            with open(
+                os.path.join(self.checkpoint_dir, self.train_name + ".json"), "w"
+            ) as json_file:
+                json.dump(self.args, json_file)
+            json_file.close()
         self.device = torch.device(self.args["device"])
 
         if self.args["using_proprioception"]:
