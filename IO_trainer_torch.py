@@ -1,5 +1,6 @@
 import copy
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
 import time
 import subprocess
 import random
@@ -67,12 +68,12 @@ class Trainer:
                     ("terminate_episode", spaces.Discrete(4)),
                     (
                         "world_vector",
-                        spaces.Box(low=-0.1, high=0.1, shape=(3,), dtype=np.float32),
+                        spaces.Box(low=-0.05, high=0.05, shape=(3,), dtype=np.float32),
                     ),
                     (
                         "rotation_delta",
                         spaces.Box(
-                            low=-np.pi / 5, high=np.pi / 5, shape=(3,), dtype=np.float32
+                            low=-np.pi / 10, high=np.pi / 10, shape=(3,), dtype=np.float32
                         ),
                     ),
                     (

@@ -29,7 +29,7 @@ from torchvision import transforms
 
 
 class SimTester:
-    def __init__(self, task_name, max_step=100, device="cuda", sim_interval=0.005):
+    def __init__(self, task_name, max_step=200, device="cuda", sim_interval=0.005):
         p.connect(p.DIRECT)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
         p.setPhysicsEngineParameter(maxNumCmdPer1ms=1000)
@@ -407,9 +407,9 @@ class Evaluator:
                     )
                 vid.append(frame_rgb)
                 if self.sim_tester.episode_succ[1] == True:
+                    print("lifted")
                     lift_count += 1
                     if lift_count >= 5:
-                        print("lifted")
                         break
             self.sim_tester.check_episode_succ()
             self.write_results(results_fn, self.sim_tester.episode_succ)
