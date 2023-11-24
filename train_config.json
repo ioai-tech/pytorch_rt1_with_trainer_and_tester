@@ -1,12 +1,12 @@
 {
     "mode": "train",
     "device": "cuda",
-    "data_path": "/mnt/data/io_rt1_dataset/20231123_pick_r20_cube151212_drop_after_lift_straight_action/Panda_pick",
-    "cam_view" : ["front"],
+    "data_path": "/mnt/data/io_rt1_dataset/20231123_pick_r20_cube151212_drop_after_lift_straight_action_1/Panda_pick",
+    "cam_view" : ["front", "wrist"],
     "log_dir": "/mnt/logs_1",
     "time_sequence_length": 6,
-    "lr": 0.00001,
-    "batch_size": 16,
+    "lr": 0.0001,
+    "batch_size": 4,
     "epochs": 50,
     "resume": false,
     "resume_from_checkpoint": "/mnt/logs_1/1700745687/49-checkpoint.pth",
@@ -14,9 +14,9 @@
     "world_size": 4,
     "dist_url": "env://",
     "val_interval" : 10,
-    "num_val_threads": 25,
+    "num_eval_threads": 25,
     "num_train_episode" : 200,
-    "num_val_episode" : 100,
+    "num_val_episode" : 10,
     "using_proprioception" : true,
     "network_configs": {
         "vocab_size" : 256,
@@ -31,9 +31,9 @@
         "use_token_learner" : true
     },
     "scheduler_configs" : {
-        "T_0" : 10,
+        "T_0" : 50,
         "T_mult" : 2,
-        "eta_min" : 1e-6,
+        "eta_min" : 1e-5,
         "verbose" : true
     }
     

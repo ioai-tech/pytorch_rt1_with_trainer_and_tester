@@ -1,6 +1,7 @@
 import copy
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
 import time
 import subprocess
 import random
@@ -40,6 +41,11 @@ class Trainer:
     def __init__(self, args):
         utils.set_seed()
         self.args = args
+        self.args = utils.init_distributed_mode(self.args)
+        if self.args["mode"] == "eval":
+            self.args["num_val_episode"] = (
+                self.args["num_eval_threads"] * self.args["world_size"]
+            )
         self.train_dataset, self.val_dataset = build_dataset(
             data_path=self.args["data_path"],
             time_sequence_length=self.args["time_sequence_length"],
@@ -51,7 +57,6 @@ class Trainer:
                 "language_embedding_size"
             ],
         )
-        self.args = utils.init_distributed_mode(self.args)
         self.checkpoint_dir, self.tensorboard_dir = self.make_log_dir(
             self.args["log_dir"]
         )
@@ -68,12 +73,15 @@ class Trainer:
                     ("terminate_episode", spaces.Discrete(4)),
                     (
                         "world_vector",
-                        spaces.Box(low=-0.05, high=0.05, shape=(3,), dtype=np.float32),
+                        spaces.Box(low=-0.01, high=0.01, shape=(3,), dtype=np.float32),
                     ),
                     (
                         "rotation_delta",
                         spaces.Box(
-                            low=-np.pi / 10, high=np.pi / 10, shape=(3,), dtype=np.float32
+                            low=-np.pi / 50,
+                            high=np.pi / 50,
+                            shape=(3,),
+                            dtype=np.float32,
                         ),
                     ),
                     (
@@ -493,7 +501,7 @@ class Trainer:
                 str(self.args["gpu"]),
                 cam_views,
                 str(int(self.args["using_proprioception"])),
-                str(self.args["num_val_threads"]),
+                str(self.args["num_eval_threads"]),
             ]
         )
         if self.args["distributed"]:
@@ -544,5 +552,7 @@ if __name__ == "__main__":
     trainer = Trainer(args)
     if args["mode"] == "train":
         trainer.train()
-    else:
+    elif args["mode"] == "eval":
         trainer.evaluate()
+    else:
+        raise NotImplementedError("mode must be '''train''' or '''eval'''")
