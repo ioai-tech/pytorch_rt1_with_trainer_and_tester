@@ -99,8 +99,8 @@ class SimTester:
         self.episode_succ = [False, False]
 
     def reset_obs(self, cam_views):
-        self.imgs = [torch.zeros(1, 3, 256 * len(cam_views), 320)] * 6
-        self.joints = [torch.zeros(1, 9)] * 6
+        self.imgs = [torch.zeros(1, 3, 256 * len(cam_views), 320)] * self.time_sequence_length
+        self.joints = [torch.zeros(1, 9)] * self.time_sequence_length
 
     def update_obs(self, cam_views):
         # Obtain observation images from specified camera views
@@ -306,6 +306,7 @@ class Evaluator:
         network_configs["input_tensor_space"] = state_space_list()[0]
         network_configs["output_tensor_space"] = self._action_space
         self.network = TransformerNetwork(**network_configs)
+        setattr(self.sim_tester, "time_sequence_length", self.network._time_sequence_length)
         try:
             local_rank = os.environ["LOCAL_RANK"]
             torch.cuda.set_device(int(local_rank))
