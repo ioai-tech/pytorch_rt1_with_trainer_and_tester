@@ -405,11 +405,12 @@ class Evaluator:
                         (0, 0, 255),
                         2,
                     )
+                frame_rgb = cv2.cvtColor(frame_rgb, cv2.COLOR_BGR2RGB)
                 vid.append(frame_rgb)
                 if self.sim_tester.episode_succ[1] == True:
-                    print("lifted")
                     lift_count += 1
                     if lift_count >= 5:
+                        print("lifted")
                         break
             self.sim_tester.check_episode_succ()
             self.write_results(results_fn, self.sim_tester.episode_succ)
