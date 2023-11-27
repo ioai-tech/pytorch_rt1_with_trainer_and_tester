@@ -50,7 +50,7 @@ class SimTester:
         try:
             self.execute_action(delta_ee_pos, delta_ee_rot, gripper_cmd, cam_views)
         except func_timeout.exceptions.FunctionTimedOut:
-            print("robot stuck")
+            # print("robot stuck")
             pass
         self.update_obs(cam_views)
 

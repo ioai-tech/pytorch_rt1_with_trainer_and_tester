@@ -74,13 +74,13 @@ class Trainer:
                     ("terminate_episode", spaces.Discrete(4)),
                     (
                         "world_vector",
-                        spaces.Box(low=-0.01, high=0.01, shape=(3,), dtype=np.float32),
+                        spaces.Box(low=-0.05, high=0.05, shape=(3,), dtype=np.float32),
                     ),
                     (
                         "rotation_delta",
                         spaces.Box(
-                            low=-np.pi / 50,
-                            high=np.pi / 50,
+                            low=-np.pi / 10,
+                            high=np.pi / 10,
                             shape=(3,),
                             dtype=np.float32,
                         ),
