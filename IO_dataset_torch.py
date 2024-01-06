@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from tqdm import tqdm as tqdm
 
@@ -371,3 +371,98 @@ class IODataset(Dataset):
         if pad_step_num > 0:
             episode_status[pad_step_num] = np.array([1, 0, 0, 0])
         return episode_status
+
+
+def load_config_from_json(json_path):
+    with open(json_path, "r") as f:
+        config = json.load(f)
+    return config
+
+
+if __name__ == "__main__":
+    args = load_config_from_json("train_config.json")
+    dataset, _ = build_dataset(
+        data_path=args["data_path"],
+        time_sequence_length=args["time_sequence_length"],
+        predicting_next_ts=args["predicting_next_ts"],
+        num_train_episode=args["num_train_episode"],
+        num_val_episode=args["num_val_episode"],
+        cam_view=args["cam_view"],
+        language_embedding_size=args["network_configs"]["language_embedding_size"],
+    )
+    # dataset = dataset[:100]
+
+    wv_x = []
+    wv_y = []
+    wv_z = []
+    rd_x = []
+    rd_y = []
+    rd_z = []
+    from maruya24_rt1.tokenizers import action_tokenizer
+    from gym import spaces
+    from collections import OrderedDict
+    import matplotlib.pyplot as plt
+
+    output_tensor_space = spaces.Dict(
+        OrderedDict(
+            [
+                ("terminate_episode", spaces.Discrete(4)),
+                (
+                    "world_vector",
+                    spaces.Box(low=-0.025, high=0.025, shape=(3,), dtype=np.float32),
+                ),
+                (
+                    "rotation_delta",
+                    spaces.Box(
+                        low=-np.pi / 20,
+                        high=np.pi / 20,
+                        shape=(3,),
+                        dtype=np.float32,
+                    ),
+                ),
+                (
+                    "gripper_closedness_action",
+                    spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),
+                ),
+            ]
+        )
+    )
+    at = action_tokenizer.RT1ActionTokenizer(
+        output_tensor_space, vocab_size=256  # action space
+    )
+    dataloader = DataLoader(dataset, batch_size=64, num_workers=64)
+    for i, batch in tqdm(enumerate(dataloader), total=len(dataset) // 64):
+        batch = at.tokenize(batch[1])
+        for i in range(batch.size(0)):
+            wv_x.append(int(batch[i, -1, 1]))
+            wv_y.append(int(batch[i, -1, 2]))
+            wv_z.append(int(batch[i, -1, 3]))
+            rd_x.append(int(batch[i, -1, 4]))
+            rd_y.append(int(batch[i, -1, 5]))
+            rd_z.append(int(batch[i, -1, 6]))
+        # print(batch)
+    plt.subplot(2, 3, 1)
+    plt.title("world_vector_x")
+    plt.hist(wv_x, bins=256, range=(0, 256))
+    plt.xlim(0, 256)
+    plt.subplot(2, 3, 2)
+    plt.title("world_vector_y")
+    plt.hist(wv_y, bins=256, range=(0, 256))
+    plt.xlim(0, 256)
+    plt.subplot(2, 3, 3)
+    plt.title("world_vector_z")
+    plt.hist(wv_z, bins=256, range=(0, 256))
+    plt.xlim(0, 256)
+    plt.subplot(2, 3, 4)
+    plt.title("rotation_delta_x")
+    plt.hist(rd_x, bins=256, range=(0, 256))
+    plt.xlim(0, 256)
+    plt.subplot(2, 3, 5)
+    plt.title("rotation_delta_y")
+    plt.hist(rd_y, bins=256, range=(0, 256))
+    plt.xlim(0, 256)
+    plt.subplot(2, 3, 6)
+    plt.title("rotation_delta_z")
+    plt.hist(rd_z, bins=256, range=(0, 256))
+    plt.xlim(0, 256)
+    plt.show()
