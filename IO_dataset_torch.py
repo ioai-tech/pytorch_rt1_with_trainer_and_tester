@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from tqdm import tqdm as tqdm
 
@@ -371,3 +371,32 @@ class IODataset(Dataset):
         if pad_step_num > 0:
             episode_status[pad_step_num] = np.array([1, 0, 0, 0])
         return episode_status
+
+
+if __name__ == "__main__":
+
+    def load_config_from_json(json_path):
+        with open(json_path, "r") as f:
+            config = json.load(f)
+        return config
+
+    args = load_config_from_json("train_config.json")
+    train_dataset, val_dataset = build_dataset(
+        data_path=args["data_path"],
+        time_sequence_length=args["time_sequence_length"],
+        predicting_next_ts=args["predicting_next_ts"],
+        num_train_episode=args["num_train_episode"],
+        num_val_episode=args["num_val_episode"],
+        cam_view=args["cam_view"],
+        language_embedding_size=args["network_configs"]["language_embedding_size"],
+    )
+    dataloader = DataLoader(train_dataset, 1, num_workers=0, shuffle=False)
+    posx = []
+    posy = []
+    posz = []
+    rotx = []
+    roty = []
+    rotz = []
+    for b in tqdm(dataloader):
+        _, action = b
+        pass

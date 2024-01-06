@@ -76,6 +76,7 @@ class TransformerNetwork(nn.Module):
 
         # create tokenizers
         self._image_tokenizers = nn.ModuleDict()
+        self.language_embedding = nn.Embedding(512, language_embedding_size)
         for idx_encoder in range(num_encoders):
             self._image_tokenizers[
                 str(idx_encoder)
@@ -691,9 +692,10 @@ class TransformerNetwork(nn.Module):
         context = None
         if "natural_language_embedding" in observations:
             outer_rank = self._get_outer_rank(observations)
-            context = observations[
-                "natural_language_embedding"
-            ]  # [b, t, emb-size] or [b, emb-size]
+
+            context = self.language_embedding(
+                observations["natural_language_embedding"]
+            )  # [b, t, emb-size] or [b, emb-size]
             if outer_rank == 1:
                 context = torch.tile(context[:, None], [1, seq_len, 1])
                 # [b, emb-size] ->  [b, 1, emb-size] -> [b, seq_len, emb-size]

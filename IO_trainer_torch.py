@@ -9,6 +9,8 @@ import json
 from collections import OrderedDict
 
 import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -25,7 +27,9 @@ import pybullet_data as pdata
 from tqdm import tqdm
 
 import util.misc as utils
-from IO_dataset_torch import build_dataset
+
+# from IO_dataset_torch import build_dataset
+from dataset import build_dataset
 from maruya24_rt1.tokenizers.utils import batched_space_sampler, np_to_tensor
 from maruya24_rt1.transformer_network import TransformerNetwork
 from maruya24_rt1.transformer_network_test_set_up import state_space_list
@@ -60,7 +64,7 @@ class Trainer:
                 "language_embedding_size"
             ],
         )
-        
+
         if self.args["distributed"]:
             self.sampler_train = DistributedSampler(self.train_dataset, shuffle=True)
             self.sampler_val = DistributedSampler(self.val_dataset, shuffle=False)
@@ -74,13 +78,13 @@ class Trainer:
                     ("terminate_episode", spaces.Discrete(4)),
                     (
                         "world_vector",
-                        spaces.Box(low=-0.05, high=0.05, shape=(3,), dtype=np.float32),
+                        spaces.Box(low=-0.02, high=0.02, shape=(3,), dtype=np.float32),
                     ),
                     (
                         "rotation_delta",
                         spaces.Box(
-                            low=-np.pi / 10,
-                            high=np.pi / 10,
+                            low=-np.pi / 20,
+                            high=np.pi / 20,
                             shape=(3,),
                             dtype=np.float32,
                         ),
