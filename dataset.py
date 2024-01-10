@@ -76,6 +76,8 @@ def build_dataset(
     #     episode_length=np.array(episode_length)[perm_indice],
     # )
     episode_dirs = glob.glob(data_path + "/*")
+    perm_indice = torch.randperm(len(episode_dirs)).tolist()
+    episode_dirs = np.array(episode_dirs)[perm_indice]
     # train_episode_dirs = dirs_lengths["episode_dirs"][:num_train_episode]
     # train_episode_length = dirs_lengths["episode_length"][:num_train_episode]
     # val_episode_dirs = dirs_lengths["episode_dirs"][
@@ -114,7 +116,7 @@ class PreTrainingDataset(Dataset):
         predicting_next_ts=True,
         w=256,
         h=320,
-        cam_views=["rgb", "cam_fisheye"],
+        cam_views=None,
     ):
         self.data_dirs = data_dirs
         self._time_sequence_length = time_sequence_length
@@ -123,14 +125,14 @@ class PreTrainingDataset(Dataset):
         self._negative_margin = negative_margin
 
         self.pattern = re.compile(r"(\d+)_(\d+).png")
-        self.episodes_stats, self.datas = self.calc_episode_stats()
+        self.datas = self.calc_episode_stats()
         self.w = w
         self.h = h
         self.predicting_next_ts = predicting_next_ts
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Resize((self.w, self.h), antialias=True),
+                # transforms.Resize((self.w, self.h), antialias=True),
                 # transforms.RandomRotation(degrees=(-5, 5)),
                 # transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.1),
             ]
@@ -139,39 +141,32 @@ class PreTrainingDataset(Dataset):
             self.classes = json.load(json_file)
 
     def calc_episode_stats(self):
-        episodes_stats = {}
         datas = []
+        if self.cam_views == None:
+            cam_views = os.listdir(self.data_dirs[0])
+            self.cam_views = {}
+            for c_v in cam_views:
+                c_v = c_v.decode("utf-8")
+                if os.path.isdir(os.path.join(self.data_dirs[0], c_v)):
+                    self.cam_views[c_v] = os.listdir(
+                        os.path.join(self.data_dirs[0], c_v)
+                    )[0].split(".")[-1]
+        self.episode_status = {}
         for ddr in tqdm(self.data_dirs):
             if ddr.endswith("json") or ddr.endswith("yml"):
                 continue
-            # ee_data = pd.read_csv(os.path.join(ddr, "result.csv"))
-            # timestamp = list(ee_data["timestamp"])
-            rgb_imgs_fns = os.listdir(os.path.join(ddr, "rgb"))
-            rgb_imgs_fns.sort(key=lambda x: x[-23:-4])
-            timestamp = []
-            for fn in rgb_imgs_fns:
-                timestamp.append(int(fn[-23:-4]))
-            imgfn_idx_ts_pairs = []
-            for ts in timestamp:
-                paired_img_fn = None
-                for img_fn in rgb_imgs_fns:
-                    if str(ts) in img_fn:
-                        paired_img_fn = img_fn
-                        pair = dict(
-                            ddr=ddr,
-                            ts=ts,
-                            img_fn=paired_img_fn,
-                            idx=int(paired_img_fn.split("raw")[-1].split("_")[1])
-                            # idx=int(
-                            #     re.search(self.pattern, paired_img_fn).group(1)
-                            # ),
-                        )
-                        imgfn_idx_ts_pairs.append(pair)
-                        datas.append(pair)
-                        rgb_imgs_fns.remove(img_fn)
-                        break
-            episodes_stats[ddr] = imgfn_idx_ts_pairs
-        return episodes_stats, datas
+            ee_data = pd.read_csv(os.path.join(ddr, "result.csv"))
+            timestamp = list(ee_data["timestamp"])
+            sequence_id = list(ee_data["sequence_id"])
+            min_idx = min(sequence_id)
+            max_idx = max(sequence_id)
+            self.episode_status[ddr] = (min_idx, max_idx)
+            for ts, seq_id in zip(timestamp, sequence_id):
+                idxs = torch.arange(seq_id - self._time_sequence_length + 1, seq_id + 1)
+                idxs = torch.where(idxs < min_idx, torch.tensor(-1), idxs)
+                pair = dict(ddr=ddr, ts=ts, idx=idxs)
+                datas.append(pair)
+        return datas
 
     def generate_fn_lists(self):
         """
@@ -245,8 +240,6 @@ class PreTrainingDataset(Dataset):
         return len(self.datas)
 
     def __getitem__(self, idx):
-        # profiler = cProfile.Profile()
-        # profiler.enable()
         value = self.datas[idx]
         # profiler = cProfile.Profile()
         # profiler.enable()
@@ -268,23 +261,20 @@ class PreTrainingDataset(Dataset):
         return sample_obs, sample_action
 
     def get_item(self, value):
-        values = self.episodes_stats[value["ddr"]]
-        a_idxs = [v["idx"] for v in values]
-        # episode_dict = {idx: v for idx, v in zip(a_idxs, values)}
-        min_idx = min(a_idxs)
-        max_idx = max(a_idxs)
-        idxs = torch.arange(
-            value["idx"] - self._time_sequence_length + 1, value["idx"] + 1
-        )
-        idxs = torch.where(idxs < min_idx, torch.tensor(-1), idxs)
-        imgs = self.get_image(value, idxs)
+        # values = self.episodes_stats[value["ddr"]]
+        # a_idxs = [v["idx"] for v in values]
+        # # episode_dict = {idx: v for idx, v in zip(a_idxs, values)}
+        # min_idx = min(a_idxs)
+        # max_idx = max(a_idxs)
+        # idxs = torch.arange(
+        #     value["idx"] - self._time_sequence_length + 1, value["idx"] + 1
+        # )
+        # idxs = torch.where(idxs < min_idx, torch.tensor(-1), idxs)
+        imgs = self.get_image(value)
         lang = self.get_language_instruction(value)
-        ee_pos_cmd, ee_rot_cmd, gripper_cmd = self.get_ee_data(value, idxs, min_idx)
+        ee_pos_cmd, ee_rot_cmd, gripper_cmd = self.get_ee_data(value)
         terminate_episode = self.get_episode_status(
-            min_idx=min_idx,
-            max_idx=max_idx,
-            query_index=idxs,
-            pad_step_num=torch.sum(torch.eq(idxs, -1)),
+            value,
         )
         sample_obs = {
             "image": imgs.float(),
@@ -298,33 +288,20 @@ class PreTrainingDataset(Dataset):
         }
         return sample_obs, sample_action
 
-    def get_image(self, value, idxs):
-        # TODO: read image not correspond to new dataset
-
-        cv_fn_pair = {}
-        for c_v in self.cam_views:
-            cv_fn_pair[c_v] = os.listdir(os.path.join(value["ddr"], c_v))
+    def get_image(self, value):
+        idxs = value["idx"]
         imgs = []
         for idx in idxs:
             if idx == -1:
                 imgs_multi_cam = []
-                for c_v in self.cam_views:
+                for c_v, v in self.cam_views.items():
                     imgs_multi_cam.append(self.transform(np.zeros((self.w, self.h, 3))))
             else:
                 # img_fns = os.listdir(os.path.join(
                 #                             episode_dict[int(idx)]["ddr"],
                 #                             c_v,)
                 imgs_multi_cam = []
-                for c_v in self.cam_views:
-                    fn = list(
-                        filter(lambda img: str(int(idx)) in img, cv_fn_pair[c_v])
-                    )[0]
-                    # fn = cv_fn_pair[c_v]
-                    # fn_ = fn.split("_")
-                    # fn = ""
-                    # for segs in fn_[:-2]:
-                    #     fn += segs + "_"
-                    # fn = fn + str(int(idx)) + "_" + fn_[-1]
+                for c_v, v in self.cam_views.items():
                     imgs_multi_cam.append(
                         self.transform(
                             np.array(
@@ -332,7 +309,7 @@ class PreTrainingDataset(Dataset):
                                     os.path.join(
                                         value["ddr"],
                                         c_v,
-                                        fn,
+                                        str(int(idx)) + "." + v,
                                     )
                                 )
                             )[:, :, :3]
@@ -340,13 +317,9 @@ class PreTrainingDataset(Dataset):
                         )
                     )
             imgs.append(torch.cat(imgs_multi_cam, dim=1))
-        # for i in range(len(idxs)):
-        #     plt.subplot(1, len(idxs), i + 1)
-        #     plt.imshow(imgs[i].permute(1, 2, 0))
-        # plt.show()
         return torch.stack(imgs)
 
-    def get_ee_data(self, value, idxs, min_idx):
+    def get_ee_data(self, value):
         """
         This function reads the csvs for ground truth robot actions, robot joint status and target object position and orientation:
         Parameters:
@@ -372,7 +345,8 @@ class PreTrainingDataset(Dataset):
         ee_pos_cmd = []
         ee_rot_cmd = []
         gripper_cmd = []
-        for idx in idxs:
+        for idx in value["idx"]:
+            idx = int(idx)
             if idx == -1:
                 ee_pos_cmd.append(torch.zeros(3))
                 ee_rot_cmd.append(torch.zeros(3))
@@ -381,7 +355,7 @@ class PreTrainingDataset(Dataset):
                 ee_pos_cmd.append(
                     torch.from_numpy(
                         ee_data.loc[
-                            int(idx - min_idx),
+                            idx - 1,
                             [f"ee_command_position_{ax}" for ax in ["x", "y", "z"]],
                         ].to_numpy()
                     )
@@ -389,7 +363,7 @@ class PreTrainingDataset(Dataset):
                 ee_rot_cmd.append(
                     torch.from_numpy(
                         ee_data.loc[
-                            int(idx - min_idx),
+                            idx - 1,
                             [f"ee_command_rotation_{ax}" for ax in ["x", "y", "z"]],
                         ].to_numpy()
                     )
@@ -397,7 +371,7 @@ class PreTrainingDataset(Dataset):
                 gripper_cmd.append(
                     torch.from_numpy(
                         ee_data.loc[
-                            int(idx - min_idx),
+                            idx - 1,
                             [f"gripper_closedness_commanded"],
                         ].to_numpy()
                     )
@@ -420,7 +394,7 @@ class PreTrainingDataset(Dataset):
         lan = self.classes[re.match(r"^\d{8}_(\w+)_\d+_\d+$", lan).group(1)]
         return torch.ones(self._time_sequence_length) * lan
 
-    def get_episode_status(self, min_idx, max_idx, query_index, pad_step_num):
+    def get_episode_status(self, value):
         """
         This function is to find whether current frame and history frame is start or middle or end of the episode:
         Parameters:
@@ -430,6 +404,10 @@ class PreTrainingDataset(Dataset):
         Returns:
         - episode_status(np.array): specifies status(start, middle or end) of each frame in history
         """
+        query_index = value["idx"]
+        min_idx = self.episode_status[value["ddr"]][0]
+        max_idx = self.episode_status[value["ddr"]][1]
+        pad_step_num = pad_step_num = torch.sum(torch.eq(query_index, -1))
         start_idx = query_index[(query_index > -1).nonzero()[0, 0]]
         end_idx = query_index[-1]
         episode_status = np.zeros([pad_step_num, 4], dtype=np.int32)
@@ -464,7 +442,7 @@ def extract_keywords_from_folder_names(folder_path):
     pattern = r"^\d{8}_(\w+)_\d+_\d+$"  # 匹配类似 "20231101_apple_0_12" 的模式
 
     # 遍历文件夹
-    for item in os.listdir(folder_path):
+    for item in tqdm(os.listdir(folder_path)):
         # 检查是否为文件夹
         if os.path.isdir(os.path.join(folder_path, item)):
             # 使用正则表达式提取关键词
@@ -482,21 +460,22 @@ def extract_keywords_from_folder_names(folder_path):
     return keys
 
 
+def load_config_from_json(json_path):
+    with open(json_path, "r") as f:
+        config = json.load(f)
+    return config
+
+
 if __name__ == "__main__":
-
-    def load_config_from_json(json_path):
-        with open(json_path, "r") as f:
-            config = json.load(f)
-        return config
-
     args = load_config_from_json("train_config.json")
+    extract_keywords_from_folder_names(args["data_path"])
     train_dataset, val_dataset = build_dataset(
         data_path=args["data_path"],
         time_sequence_length=args["time_sequence_length"],
         predicting_next_ts=args["predicting_next_ts"],
         num_train_episode=args["num_train_episode"],
         num_val_episode=args["num_val_episode"],
-        cam_view=args["cam_view"],
+        cam_view=None,
         language_embedding_size=args["network_configs"]["language_embedding_size"],
     )
 
@@ -508,13 +487,13 @@ if __name__ == "__main__":
     roty = []
     rotz = []
     for b in tqdm(dataloader):
-        _, action = b
-        posx.append(float(action["world_vector"][0][0][0]))
-        posy.append(float(action["world_vector"][0][0][1]))
-        posz.append(float(action["world_vector"][0][0][2]))
-        rotx.append(float(action["rotation_delta"][0][0][0]))
-        roty.append(float(action["rotation_delta"][0][0][1]))
-        rotz.append(float(action["rotation_delta"][0][0][2]))
+        # _, action = b
+        # posx.append(float(action["world_vector"][0][0][0]))
+        # posy.append(float(action["world_vector"][0][0][1]))
+        # posz.append(float(action["world_vector"][0][0][2]))
+        # rotx.append(float(action["rotation_delta"][0][0][0]))
+        # roty.append(float(action["rotation_delta"][0][0][1]))
+        # rotz.append(float(action["rotation_delta"][0][0][2]))
         pass
     plt.subplot(2, 3, 1)
     plt.hist(posx, bins=256, label="posx")
