@@ -247,11 +247,13 @@ class Evaluator:
         obs["image"] = torch.stack(imgs, dim=1).to(
             self.device
         )  # Stack images on the device
-        obs["natural_language_embedding"] = torch.zeros(
-            1, network._time_sequence_length, network._language_embedding_size
-        ).to(
+        obs["natural_language_embedding"] = torch.ones(
+            1, network._time_sequence_length
+        ) * 3
+        obs["natural_language_embedding"] = obs["natural_language_embedding"].long().to(
             self.device
-        )  # Prepare language embedding tensor
+        )   # Prepare language embedding tensor
+
 
         # Stack joint positions and adjust dimensions
         obs["joint_position"] = torch.stack(joints).permute(1, 0, 2)
@@ -471,9 +473,9 @@ def test_loss(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task", type=str, default="pick")
-    parser.add_argument("-d", "--ckpt_dir", type=str, default="/mnt/logs_1/1700447417")
-    parser.add_argument("-c", "--cam_views", type=str)
-    parser.add_argument("-m", "--model_name", type=str, default="49-checkpoint.pth")
+    parser.add_argument("-d", "--ckpt_dir", type=str, default="/mnt/logs_1/1704869359")
+    parser.add_argument("-c", "--cam_views", type=str, default='topdown_wrist')
+    parser.add_argument("-m", "--model_name", type=str, default="99-checkpoint.pth")
     parser.add_argument("-p", "--proc_name", type=int, default=200)
     parser.add_argument("-e", "--epoch_num", type=str, default="0")
     parser.add_argument("-g", "--gpu_name", type=str, default="3")

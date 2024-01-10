@@ -173,12 +173,25 @@ class Panda(RobotBase):
         self.arm_dof = 7
         self.ee_index = 11
         self.finger_index = [9, 10]
-        self.home_j_pos = [1.22, -0.458, 0.31, -2.0, 0.20, 1.56, 2.32, 0.04, 0.04]
+        # self.home_j_pos = [1.22, -0.458, 0.31, -2.0, 0.20, 1.56, 2.32, 0.04, 0.04]
+        self.home_j_pos = [
+            1.412801126510911,
+            0.048086175911971105,
+            0.4007940666256258,
+            -2.8524422310253965,
+            1.5658767673799925,
+            2.4032201056903344,
+            1.1224907389640084,
+            0.039999999754955703,
+            0.040000000000000015,
+        ]
         self.gripper_range = [0.01, 0.04]
         self.grasp_force_threshold = 2
 
     def load(self):
-        super().load("franka_panda/panda.urdf", [0, 0, 0.62], [0, 0, 0, 1])
+        # super().load("franka_panda/panda.urdf", [0, 0, 0.62], [0, 0, 0, 1])
+        super().load("franka_panda/panda.urdf", [0.35, 0, 0.75], [0, 0, 0, 1])
+
         # create a constraint to keep the fingers centered, 9 and 10 for finger indices
         c = p.createConstraint(
             self.robot_id,

@@ -1,5 +1,8 @@
 import copy
 import os
+import warnings
+warnings.filterwarnings("ignore")
+
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
 import time
@@ -28,8 +31,8 @@ from tqdm import tqdm
 
 import util.misc as utils
 
-# from IO_dataset_torch import build_dataset
-from dataset import build_dataset
+from IO_dataset_torch import build_dataset
+# from dataset import build_dataset
 from maruya24_rt1.tokenizers.utils import batched_space_sampler, np_to_tensor
 from maruya24_rt1.transformer_network import TransformerNetwork
 from maruya24_rt1.transformer_network_test_set_up import state_space_list
@@ -554,7 +557,7 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    args = load_config_from_json("train_config.json")
+    args = load_config_from_json("train_config_finetune.json")
     trainer = Trainer(args)
     if args["mode"] == "train":
         trainer.train()

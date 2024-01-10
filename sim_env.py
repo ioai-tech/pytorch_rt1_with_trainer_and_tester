@@ -19,48 +19,57 @@ TASKS = {
 }
 
 # Dictionary defining various camera views along with their configuration parameters
+# CAM_INFO = {
+#     "front": [
+#         [0, 0, 0.7],
+#         1.8,
+#         180,
+#         -20,
+#         0,
+#         40,
+#     ],  # Front view: [position], distance, angles, fov
+#     "fronttop": [
+#         [0, 0.5, 0.7],
+#         1.5,
+#         180,
+#         -60,
+#         0,
+#         35,
+#     ],  # Front-top view: [position], distance, angles, fov
+#     "topdown": [
+#         [0, 0.35, 0],
+#         2.0,
+#         0,
+#         -90,
+#         0,
+#         45,
+#     ],  # Top-down view: [position], distance, angles, fov
+#     "side": [
+#         [0, 0.35, 0.9],
+#         1.5,
+#         90,
+#         0,
+#         0,
+#         40,
+#     ],  # Side view: [position], distance, angles, fov
+#     "root": [
+#         [0, 0.6, 0.75],
+#         1.3,
+#         -35,
+#         -5,
+#         0,
+#         40,
+#     ],  # Root view: [position], distance, angles, fov
+#     "wrist": [],  # Placeholder for the 'wrist', since wrist view goes with the end effector, so no predefined camera parameters required
+# }
 CAM_INFO = {
-    "front": [
-        [0, 0, 0.7],
-        1.8,
-        180,
-        -20,
-        0,
-        40,
-    ],  # Front view: [position], distance, angles, fov
-    "fronttop": [
-        [0, 0.5, 0.7],
-        1.5,
-        180,
-        -60,
-        0,
-        35,
-    ],  # Front-top view: [position], distance, angles, fov
-    "topdown": [
-        [0, 0.35, 0],
-        2.0,
-        0,
-        -90,
-        0,
-        45,
-    ],  # Top-down view: [position], distance, angles, fov
-    "side": [
-        [0, 0.35, 0.9],
-        1.5,
-        90,
-        0,
-        0,
-        40,
-    ],  # Side view: [position], distance, angles, fov
-    "root": [
-        [0, 0.6, 0.75],
-        1.3,
-        -35,
-        -5,
-        0,
-        40,
-    ],  # Root view: [position], distance, angles, fov
-    "wrist": [],  # Placeholder for the 'wrist', since wrist view goes with the end effector, so no predefined camera parameters required
+    "front": [[0, 0, 0.7], 1.8, 180, -20, 0, 40],
+    "fronttop": [[0, 0.5, 0.7], 1.5, 180, -60, 0, 35],
+    "topdown": [[-0.2, 0.6, 0], 1.9, 0, -70, 0, 55],
+    "side": [[0, 0.35, 0.9], 1.5, 90, 0, 0, 40],
+    # "root": [[0, 1.3, 0.85], 1.5, 0, -10, 0, 90],
+    "root": [[0, 0.6, 0.75], 1.3, -35, -5, 0, 40],
+    "wrist": [],
 }
 
 # Tuple defining the resolution of the camera (width x height)

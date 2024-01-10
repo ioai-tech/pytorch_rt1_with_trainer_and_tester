@@ -215,7 +215,7 @@ class IODataset(Dataset):
         sample_obs = {
             "image": img.float().permute(0, 3, 1, 2),
             # we permute the channel dimension to the second dimension to cope with rt1's convolution layers
-            "natural_language_embedding": torch.tensor(lang).float(),
+            "natural_language_embedding": torch.tensor(lang).long(),
             "joint_position": torch.tensor(joint).float(),
             "tar_obj_pose": torch.tensor(tar_obj_pose).float(),
         }
@@ -346,7 +346,9 @@ class IODataset(Dataset):
         it seems that google directly loads embedded language instruction from its language model
         this results in our loading a language embedding instead of language sentence
         """
-        return np.zeros([self._time_sequence_length, self._language_embedding_size])
+        # lan = value["ddr"].split("/")[-1]
+        # lan = self.classes[re.match(r"^\d{8}_(\w+)_\d+_\d+$", lan).group(1)]
+        return torch.ones(self._time_sequence_length) * 3
 
     def get_episode_status(self, episode_length, query_index, pad_step_num):
         """
