@@ -307,6 +307,7 @@ class TouchTaskEnv(SimEnv):
     def load_env(self):
         p.loadURDF("table/table.urdf", [0, 0.35, 0], [0, 0, 0, 1])
         self.tar_obj = p.loadURDF("urdf/cube/cube.urdf", [0, 0, 0], globalScaling=0.04)
+        self.reset_tar_obj([0.2, -0.1, 0.4, 0.7, 0, 0])
         p.changeVisualShape(self.tar_obj, -1, rgbaColor=[1, 0, 0, 1])
         self.robot = Panda()
         self.robot.load()

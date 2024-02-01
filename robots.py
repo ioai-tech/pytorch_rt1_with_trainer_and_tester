@@ -190,7 +190,7 @@ class Panda(RobotBase):
 
     def load(self):
         # super().load("franka_panda/panda.urdf", [0, 0, 0.62], [0, 0, 0, 1])
-        super().load("franka_panda/panda.urdf", [0.35, 0, 0.75], [0, 0, 0, 1])
+        super().load("franka_panda/panda.urdf", [0.35, 0, 0.62], [0, 0, 0, 1])
 
         # create a constraint to keep the fingers centered, 9 and 10 for finger indices
         c = p.createConstraint(

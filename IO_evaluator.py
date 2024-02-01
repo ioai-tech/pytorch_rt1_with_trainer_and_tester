@@ -99,7 +99,9 @@ class SimTester:
         self.episode_succ = [False, False]
 
     def reset_obs(self, cam_views):
-        self.imgs = [torch.zeros(1, 3, 256 * len(cam_views), 320)] * self.time_sequence_length
+        self.imgs = [
+            torch.zeros(1, 3, 256 * len(cam_views), 320)
+        ] * self.time_sequence_length
         self.joints = [torch.zeros(1, 9)] * self.time_sequence_length
 
     def update_obs(self, cam_views):
@@ -247,13 +249,12 @@ class Evaluator:
         obs["image"] = torch.stack(imgs, dim=1).to(
             self.device
         )  # Stack images on the device
-        obs["natural_language_embedding"] = torch.ones(
-            1, network._time_sequence_length
-        ) * 3
-        obs["natural_language_embedding"] = obs["natural_language_embedding"].long().to(
-            self.device
-        )   # Prepare language embedding tensor
-
+        obs["natural_language_embedding"] = (
+            torch.ones(1, network._time_sequence_length) * 3
+        )
+        obs["natural_language_embedding"] = (
+            obs["natural_language_embedding"].long().to(self.device)
+        )  # Prepare language embedding tensor
 
         # Stack joint positions and adjust dimensions
         obs["joint_position"] = torch.stack(joints).permute(1, 0, 2)
@@ -308,7 +309,9 @@ class Evaluator:
         network_configs["input_tensor_space"] = state_space_list()[0]
         network_configs["output_tensor_space"] = self._action_space
         self.network = TransformerNetwork(**network_configs)
-        setattr(self.sim_tester, "time_sequence_length", self.network._time_sequence_length)
+        setattr(
+            self.sim_tester, "time_sequence_length", self.network._time_sequence_length
+        )
         try:
             local_rank = os.environ["LOCAL_RANK"]
             torch.cuda.set_device(int(local_rank))
@@ -338,9 +341,9 @@ class Evaluator:
                 + ".mp4",
             )
             self.sim_tester.reset_tester(cam_views)
-            self.sim_tester.task_env.reset_tar_obj(
-                tar_pos_rot=tar_obj_pos_rot, random_pos_rot=False
-            )
+            # self.sim_tester.task_env.reset_tar_obj(
+            #     tar_pos_rot=tar_obj_pos_rot, random_pos_rot=False
+            # )
             time.sleep(1)
             self.sim_tester.update_obs(cam_views)
             vid = []
@@ -473,8 +476,8 @@ def test_loss(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task", type=str, default="pick")
-    parser.add_argument("-d", "--ckpt_dir", type=str, default="/mnt/logs_1/1704869359")
-    parser.add_argument("-c", "--cam_views", type=str, default='topdown_wrist')
+    parser.add_argument("-d", "--ckpt_dir", type=str, default="logs")
+    parser.add_argument("-c", "--cam_views", type=str, default="topdown_wrist")
     parser.add_argument("-m", "--model_name", type=str, default="99-checkpoint.pth")
     parser.add_argument("-p", "--proc_name", type=int, default=200)
     parser.add_argument("-e", "--epoch_num", type=str, default="0")

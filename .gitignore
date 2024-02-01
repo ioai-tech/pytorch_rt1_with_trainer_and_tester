@@ -1,1 +1,8 @@
 *__pycache__
+*.jpg
+*.png
+*.csv
+*.pth
+*.txt
+*.mp4
+*info.json
