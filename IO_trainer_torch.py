@@ -1,6 +1,7 @@
 import copy
 import os
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
@@ -32,6 +33,7 @@ from tqdm import tqdm
 import util.misc as utils
 
 from IO_dataset_torch import build_dataset
+
 # from dataset import build_dataset
 from maruya24_rt1.tokenizers.utils import batched_space_sampler, np_to_tensor
 from maruya24_rt1.transformer_network import TransformerNetwork
@@ -81,13 +83,15 @@ class Trainer:
                     ("terminate_episode", spaces.Discrete(4)),
                     (
                         "world_vector",
-                        spaces.Box(low=-0.02, high=0.02, shape=(3,), dtype=np.float32),
+                        spaces.Box(
+                            low=-0.015, high=0.015, shape=(3,), dtype=np.float32
+                        ),
                     ),
                     (
                         "rotation_delta",
                         spaces.Box(
-                            low=-np.pi / 20,
-                            high=np.pi / 20,
+                            low=-np.pi / 100,
+                            high=np.pi / 100,
                             shape=(3,),
                             dtype=np.float32,
                         ),
@@ -139,7 +143,7 @@ class Trainer:
             train_dataloader = DataLoader(
                 self.train_dataset,
                 batch_size=self.args["batch_size"],
-                num_workers=0,
+                num_workers=self.args["batch_size"],
                 shuffle=True,
                 drop_last=True,
             )
@@ -221,10 +225,9 @@ class Trainer:
                     network_state = np_to_tensor(network_state)
                     if self.args["using_proprioception"]:
                         obs = self.calc_fk(obs)
-                    output_actions, network_state = network(
-                        utils.dict_to_device(obs, self.device),
-                        utils.dict_to_device(network_state, self.device),
-                    )
+                    obs = utils.dict_to_device(obs, self.device)
+                    network_state = utils.dict_to_device(network_state, self.device)
+                    output_actions, network_state = network(obs, network_state)
 
                     loss = network_without_ddp.get_actor_loss().mean()
 
@@ -260,9 +263,7 @@ class Trainer:
                             "epoch": e,
                             "train_name": self.train_name[-5:],
                             "gpu_memory_used": str(
-                                round(
-                                    torch.cuda.max_memory_allocated() / (1024**3), 2
-                                )
+                                round(torch.cuda.max_memory_allocated() / (1024**3), 2)
                             )
                             + " GB",
                             "loss": loss.item(),
@@ -276,9 +277,11 @@ class Trainer:
                     self.checkpoint_dir, str(e) + "-checkpoint.pth"
                 )
                 checkpoint = {
-                    "model_state_dict": network_without_ddp.state_dict()
-                    if self.args["distributed"]
-                    else network.state_dict(),
+                    "model_state_dict": (
+                        network_without_ddp.state_dict()
+                        if self.args["distributed"]
+                        else network.state_dict()
+                    ),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "scheduler_state_dict": scheduler.state_dict(),
                     "action_space": self._action_space,
@@ -557,7 +560,7 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    args = load_config_from_json("train_config_finetune.json")
+    args = load_config_from_json("train_config.json")
     trainer = Trainer(args)
     if args["mode"] == "train":
         trainer.train()

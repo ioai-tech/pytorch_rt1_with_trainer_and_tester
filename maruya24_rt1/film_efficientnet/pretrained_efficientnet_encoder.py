@@ -29,8 +29,12 @@ import torch
 import torch.nn as nn
 from typing import Optional
 
-from maruya24_rt1.film_efficientnet.film_efficientnet_encoder import EfficientNetB3
-from maruya24_rt1.film_efficientnet.film_conditioning_layer import FilmConditioning
+try:
+    from maruya24_rt1.film_efficientnet.film_efficientnet_encoder import EfficientNetB3
+    from maruya24_rt1.film_efficientnet.film_conditioning_layer import FilmConditioning
+except:
+    from film_efficientnet_encoder import EfficientNetB3
+    from film_conditioning_layer import FilmConditioning
 
 
 class EfficientNetEncoder(nn.Module):
@@ -82,3 +86,18 @@ class EfficientNetEncoder(nn.Module):
 
         # Global average pool.
         return torch.mean(features, dim=(2, 3))
+
+
+if __name__ == "__main__":
+    enb3 = EfficientNetB3(
+        weights="imagenet",
+        include_top=False,
+        include_film=True,
+        text_embed_dim=512,
+    ).cuda()
+    print(enb3)
+    out = enb3(
+        torch.randn(torch.Size([40, 3, 256, 320]), device=torch.device("cuda")),
+        torch.randn(torch.Size([40, 512]), device=torch.device("cuda")),
+    )
+    print(out)

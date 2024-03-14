@@ -206,7 +206,7 @@ class IODataset(Dataset):
         value = self.values[idx]
         img = self.get_image(value["img_fns"])
         lang = self.get_language_instruction()
-        ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint, tar_obj_pose = self.get_ee_data(
+        ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint = self.get_ee_data(
             value["episode_dir"], value["query_index"], value["num_zero_history"]
         )
         terminate_episode = self.get_episode_status(
@@ -215,15 +215,15 @@ class IODataset(Dataset):
         sample_obs = {
             "image": img.float().permute(0, 3, 1, 2),
             # we permute the channel dimension to the second dimension to cope with rt1's convolution layers
-            "natural_language_embedding": torch.tensor(lang).long(),
-            "joint_position": torch.tensor(joint).float(),
-            "tar_obj_pose": torch.tensor(tar_obj_pose).float(),
+            "natural_language_embedding": torch.Tensor(lang).long(),
+            "joint_position": torch.Tensor(joint).float(),
+            # "tar_obj_pose": torch.tensor(tar_obj_pose).float(),
         }
         sample_action = {
-            "world_vector": torch.tensor(ee_pos_cmd).float(),
-            "rotation_delta": torch.tensor(ee_rot_cmd).float(),
-            "gripper_closedness_action": torch.tensor(gripper_cmd).float(),
-            "terminate_episode": torch.tensor(terminate_episode.argmax(-1)).long(),
+            "world_vector": torch.Tensor(ee_pos_cmd).float(),
+            "rotation_delta": torch.Tensor(ee_rot_cmd).float(),
+            "gripper_closedness_action": torch.Tensor(gripper_cmd).float(),
+            "terminate_episode": torch.Tensor(terminate_episode.argmax(-1)).long(),
         }
 
         return sample_obs, sample_action
@@ -318,26 +318,26 @@ class IODataset(Dataset):
                     [f"joint_{str(ax)}" for ax in range(self._robot_dof)],
                 ].to_numpy(),
             )
-        )
-        tar_obj_pose = np.vstack(
-            (
-                tar_obj_pose,
-                raw_raw_data.loc[
-                    start_idx:end_idx,
-                    [
-                        f"tar_obj_pose_{ax}"
-                        for ax in ["x", "y", "z", "rx", "ry", "rz", "rw"]
-                    ],
-                ].to_numpy(),
-            )
-        )
+        ).astype(np.float32)
+        # tar_obj_pose = np.vstack(
+        #     (
+        #         tar_obj_pose,
+        #         raw_raw_data.loc[
+        #             start_idx:end_idx,
+        #             [
+        #                 f"tar_obj_pose_{ax}"
+        #                 for ax in ["x", "y", "z", "rx", "ry", "rz", "rw"]
+        #             ],
+        #         ].to_numpy(),
+        #     )
+        # )
         gripper_data = (
             raw_data.loc[start_idx:end_idx, "gripper_closedness_commanded"]
             .to_numpy()
             .reshape(-1, 1)
         )
         gripper_cmd = np.vstack((gripper_cmd, gripper_data))
-        return ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint, tar_obj_pose
+        return ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint
 
     def get_language_instruction(self):
         """
@@ -376,6 +376,7 @@ class IODataset(Dataset):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
 
     def load_config_from_json(json_path):
         with open(json_path, "r") as f:
@@ -387,12 +388,12 @@ if __name__ == "__main__":
         data_path=args["data_path"],
         time_sequence_length=args["time_sequence_length"],
         predicting_next_ts=args["predicting_next_ts"],
-        num_train_episode=args["num_train_episode"],
+        num_train_episode=100,
         num_val_episode=args["num_val_episode"],
         cam_view=args["cam_view"],
         language_embedding_size=args["network_configs"]["language_embedding_size"],
     )
-    dataloader = DataLoader(train_dataset, 1, num_workers=0, shuffle=False)
+    dataloader = DataLoader(train_dataset, 32, num_workers=32, shuffle=False)
     posx = []
     posy = []
     posz = []
@@ -401,4 +402,28 @@ if __name__ == "__main__":
     rotz = []
     for b in tqdm(dataloader):
         _, action = b
-        pass
+        posx.append(float(action["world_vector"][0][0][0]))
+        posy.append(float(action["world_vector"][0][0][1]))
+        posz.append(float(action["world_vector"][0][0][2]))
+        rotx.append(float(action["rotation_delta"][0][0][0]))
+        roty.append(float(action["rotation_delta"][0][0][1]))
+        rotz.append(float(action["rotation_delta"][0][0][2]))
+    plt.subplot(2, 3, 1)
+    plt.hist(posx, bins=256, label="posx")
+    plt.legend()
+    plt.subplot(2, 3, 2)
+    plt.hist(posy, bins=256, label="posy")
+    plt.legend()
+    plt.subplot(2, 3, 3)
+    plt.hist(posz, bins=256, label="posz")
+    plt.legend()
+    plt.subplot(2, 3, 4)
+    plt.hist(rotx, bins=256, label="rotx")
+    plt.legend()
+    plt.subplot(2, 3, 5)
+    plt.hist(roty, bins=256, label="roty")
+    plt.legend()
+    plt.subplot(2, 3, 6)
+    plt.hist(rotz, bins=256, label="rotz")
+    plt.legend()
+    plt.show()
