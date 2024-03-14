@@ -76,15 +76,17 @@ class TransformerNetwork(nn.Module):
 
         # create tokenizers
         self._image_tokenizers = nn.ModuleDict()
+        self.language_embedding = nn.Embedding(512, language_embedding_size)
         for idx_encoder in range(num_encoders):
-            self._image_tokenizers[
-                str(idx_encoder)
-            ] = image_tokenizer.RT1ImageTokenizer(
-                embedding_output_dim=self._token_embedding_size,
-                language_embedding_size=self._language_embedding_size,
-                use_token_learner=use_token_learner,
-                num_tokens=8,
+            self._image_tokenizers[str(idx_encoder)] = (
+                image_tokenizer.RT1ImageTokenizer(
+                    embedding_output_dim=self._token_embedding_size,
+                    language_embedding_size=self._language_embedding_size,
+                    use_token_learner=use_token_learner,
+                    num_tokens=8,
+                )
             )
+            self._image_tokenizers[str(idx_encoder)].eval()
         # self._image_tokenizer = image_tokenizer.RT1ImageTokenizer(
         #     embedding_output_dim=self._token_embedding_size,
         #     use_token_learner=use_token_learner,
@@ -168,7 +170,7 @@ class TransformerNetwork(nn.Module):
                 # This value is within range [0, time_sequence_length + 1].
                 # When seq_idx == time_sequence_length, context_image_tokens and
                 # action_tokens need to be shifted to the left.
-                "seq_idx": spaces.Discrete(time_sequence_length + 1)
+                "seq_idx": spaces.Discrete(time_sequence_length + 1),
                 # Our data is like context_image_tokens + action_tokens + context_image_tokens + action_tokens + context_image_tokens ...
                 # 1 time step means [context_image_tokens + action_tokens]
                 # seq_idx means which time steps we are. But it is adjusted to time_sequence_length when it exceeds time_sequence_length.
@@ -575,17 +577,30 @@ class TransformerNetwork(nn.Module):
         )  # image is already tensor and its range is [0,1]
         # print(f"size of image in _tokenize_images before preprocess: {image.size()}")
 
-        image = preprocessors.convert_dtype_and_crop_images(image)
+        # image = preprocessors.convert_dtype_and_crop_images(image)
         image = image.view((b, input_t, c, h, w))
         # print(f"size of image in _tokenize_images before preprocess: {image.size()}")
 
+        # context_image_tokens = torch.zeros(
+        #     size=(
+        #         self.num_encoders,
+        #         b,
+        #         self._time_sequence_length,
+        #         8,
+        #         self._token_embedding_size,
+        #     ),
+        #     dtype=torch.float32,
+        #     device=torch.device("cuda"),
+        # )
         context_image_tokens = []
         # get image tokens
         for i in range(self.num_encoders):
             img = image[:, :, :, i * 256 : (i + 1) * 256, :]
-            context_image_tokens.append(
-                self._image_tokenizers[str(i)](img, context=context)
-            )  # (batch, t, num_tokens, embedding_dim)
+            with torch.no_grad():
+                context_image_tokens.append(
+                    self._image_tokenizers[str(i)](img, context=context)
+                )  # (batch, t, num_tokens, embedding_dim)
+                # torch.cuda.empty_cache()
         context_image_tokens = sum(context_image_tokens)
         num_tokens = context_image_tokens.shape[2]
         if self.using_proprioception:
@@ -625,7 +640,7 @@ class TransformerNetwork(nn.Module):
                     context_image_tokens,  # Note that in inference, size of context_image_tokens is (batch, 1, num_tokens, embedding_dim)
                     state_image_tokens[
                         :, time_step + 1 :, ...
-                    ]  # if time_step == time_sequence_lengths -1, this will be empty tensor.
+                    ],  # if time_step == time_sequence_lengths -1, this will be empty tensor.
                     # So this tensor will be ignored when concat
                 ],
                 dim=1,
@@ -644,7 +659,7 @@ class TransformerNetwork(nn.Module):
                         context_pos_orn,  # Note that in inference, size of context_image_tokens is (batch, 1, num_tokens, embedding_dim)
                         state_pos_orn[
                             :, time_step + 1 :, ...
-                        ]  # if time_step == time_sequence_lengths -1, this will be empty tensor.
+                        ],  # if time_step == time_sequence_lengths -1, this will be empty tensor.
                         # So this tensor will be ignored when concat
                     ],
                     dim=1,
@@ -691,9 +706,10 @@ class TransformerNetwork(nn.Module):
         context = None
         if "natural_language_embedding" in observations:
             outer_rank = self._get_outer_rank(observations)
-            context = observations[
-                "natural_language_embedding"
-            ]  # [b, t, emb-size] or [b, emb-size]
+
+            context = self.language_embedding(
+                observations["natural_language_embedding"]
+            )  # [b, t, emb-size] or [b, emb-size]
             if outer_rank == 1:
                 context = torch.tile(context[:, None], [1, seq_len, 1])
                 # [b, emb-size] ->  [b, 1, emb-size] -> [b, seq_len, emb-size]
