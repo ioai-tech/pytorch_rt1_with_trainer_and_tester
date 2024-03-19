@@ -38,6 +38,7 @@ from IO_dataset_torch import build_dataset
 from maruya24_rt1.tokenizers.utils import batched_space_sampler, np_to_tensor
 from maruya24_rt1.transformer_network import TransformerNetwork
 from maruya24_rt1.transformer_network_test_set_up import state_space_list
+from luciRT1 import MaxViT, RT1
 
 
 def load_config_from_json(json_path):
@@ -143,7 +144,7 @@ class Trainer:
             train_dataloader = DataLoader(
                 self.train_dataset,
                 batch_size=self.args["batch_size"],
-                num_workers=self.args["batch_size"],
+                num_workers=0,
                 shuffle=True,
                 drop_last=True,
             )
@@ -160,7 +161,24 @@ class Trainer:
         network_configs["using_proprioception"] = self.args["using_proprioception"]
         network_configs["input_tensor_space"] = state_space_list()[0]
         network_configs["output_tensor_space"] = self._action_space
-        network = TransformerNetwork(**network_configs)
+        # network = TransformerNetwork(**network_configs)
+
+        vit = MaxViT(
+            num_classes=1000,
+            dim_conv_stem=64,
+            dim=96,
+            dim_head=32,
+            depth=(2, 2, 5, 2),
+            window_size=7,
+            mbconv_expansion_rate=4,
+            mbconv_shrinkage_rate=0.25,
+            dropout=0.1,
+        )
+
+        network = RT1(
+            vit=vit, num_actions=8, depth=6, heads=8, dim_head=64, cond_drop_prob=0.2
+        )
+
         network.to(self.device)
         network_without_ddp = network
 

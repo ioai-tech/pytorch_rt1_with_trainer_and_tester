@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 from tqdm import tqdm as tqdm
+import time
 
 
 def build_dataset(
@@ -204,18 +205,23 @@ class IODataset(Dataset):
 
     def __getitem__(self, idx):
         value = self.values[idx]
+        start = time.time()
         img = self.get_image(value["img_fns"])
-        lang = self.get_language_instruction()
-        ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint = self.get_ee_data(
+        # print("1: ", time.time() - start)
+        t2 = time.time()
+        # lang = self.get_language_instruction()
+        ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint, lang = self.get_ee_data(
             value["episode_dir"], value["query_index"], value["num_zero_history"]
         )
+        # print("2: ", time.time() - t2)
         terminate_episode = self.get_episode_status(
             value["episode_length"], value["query_index"], value["num_zero_history"]
         )
+        # print("3: ", time.time() - start)
         sample_obs = {
             "image": img.float().permute(0, 3, 1, 2),
             # we permute the channel dimension to the second dimension to cope with rt1's convolution layers
-            "natural_language_embedding": torch.Tensor(lang).long(),
+            "natural_language_embedding": lang,
             "joint_position": torch.Tensor(joint).float(),
             # "tar_obj_pose": torch.tensor(tar_obj_pose).float(),
         }
@@ -268,7 +274,10 @@ class IODataset(Dataset):
         visual_data_filename = f"{episode_dir}result.csv"
         raw_data = pd.read_csv(visual_data_filename)
         visual_data_filename_raw = f"{episode_dir}result_raw.csv"
+
         raw_raw_data = pd.read_csv(visual_data_filename_raw)
+        task = raw_raw_data["task_description"][0]
+        task = task.replace("_", " ")
         if self.predicting_next_ts:
             """
             if predicting next timestep's results, then we shift first column to last column
@@ -337,7 +346,7 @@ class IODataset(Dataset):
             .reshape(-1, 1)
         )
         gripper_cmd = np.vstack((gripper_cmd, gripper_data))
-        return ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint
+        return ee_pos_cmd, ee_rot_cmd, gripper_cmd, joint, task
 
     def get_language_instruction(self):
         """
@@ -393,7 +402,7 @@ if __name__ == "__main__":
         cam_view=args["cam_view"],
         language_embedding_size=args["network_configs"]["language_embedding_size"],
     )
-    dataloader = DataLoader(train_dataset, 32, num_workers=32, shuffle=False)
+    dataloader = DataLoader(train_dataset, 32, num_workers=0, shuffle=False)
     posx = []
     posy = []
     posz = []
