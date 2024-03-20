@@ -716,8 +716,6 @@ class RT1(nn.Module):
 
 
 if __name__ == "__main__":
-    import torch
-
     vit = MaxViT(
         num_classes=1000,
         dim_conv_stem=64,
@@ -734,7 +732,7 @@ if __name__ == "__main__":
         vit=vit, num_actions=11, depth=6, heads=8, dim_head=64, cond_drop_prob=0.2
     )
 
-    video = torch.randn(64, 3, 6, 224, 224)
+    video = torch.randn(2, 3, 6, 224, 224)
 
     instructions = [
         "bring me that apple sitting on the table",

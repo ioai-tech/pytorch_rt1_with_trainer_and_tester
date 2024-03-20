@@ -10,6 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from tqdm import tqdm as tqdm
 import time
+from torchvision import transforms
 
 
 def build_dataset(
@@ -118,6 +119,13 @@ class IODataset(Dataset):
         self.values, self.num_zero_history_list = self.organize_file_names()
         self._robot_dof = robot_dof
         self._language_embedding_size = language_embedding_size
+        self.transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.ColorJitter(),
+                transforms.RandomCrop(224, 224),
+            ]
+        )
 
     def generate_fn_lists(self, episode_dirs):
         """
@@ -219,7 +227,7 @@ class IODataset(Dataset):
         )
         # print("3: ", time.time() - start)
         sample_obs = {
-            "image": img.float().permute(0, 3, 1, 2),
+            "image": img.float().transpose(0, 1),
             # we permute the channel dimension to the second dimension to cope with rt1's convolution layers
             "natural_language_embedding": lang,
             "joint_position": torch.Tensor(joint).float(),
@@ -247,13 +255,17 @@ class IODataset(Dataset):
             img_multi_view = []
             for c_v in self._cam_view:
                 img_multi_view.append(
-                    np.array(Image.open(img_fn.replace(self._cam_view[0], c_v)))
-                    if img_fn != None
-                    else np.zeros_like(Image.open(img_fns[-1]))
+                    self.transform(
+                        np.array(Image.open(img_fn.replace(self._cam_view[0], c_v)))[
+                            :, :, :3
+                        ]
+                        if img_fn != None
+                        else np.zeros_like(Image.open(img_fns[-1]))[:, :, :3]
+                    )
                 )
-            img = np.concatenate(img_multi_view, axis=0)
-            imgs.append(torch.from_numpy(img[:, :, :3]))
-        return torch.stack(imgs, dim=0) / 255.0
+            img = torch.cat(img_multi_view, 0)
+            imgs.append(img)
+        return torch.stack(imgs, 0) / 255.0
 
     def get_ee_data(self, episode_dir, query_index, pad_step_num):
         """

@@ -37,6 +37,7 @@ from IO_dataset_torch import build_dataset
 # from dataset import build_dataset
 from maruya24_rt1.tokenizers.utils import batched_space_sampler, np_to_tensor
 from maruya24_rt1.transformer_network import TransformerNetwork
+from maruya24_rt1.tokenizers.action_tokenizer import RT1ActionTokenizer
 from maruya24_rt1.transformer_network_test_set_up import state_space_list
 from luciRT1 import MaxViT, RT1
 
@@ -224,6 +225,9 @@ class Trainer:
 
         # self.val(network_without_ddp, 0, self.val_dataset)
         # Training loop over epochs
+        action_tokenizer = RT1ActionTokenizer(
+            self._action_space, vocab_size=256  # action space
+        )
         epoch_start = checkpoint["epoch"] if self.args["resume"] else 0
         for e in range(epoch_start, self.args["epochs"]):
             network.train()
@@ -233,21 +237,16 @@ class Trainer:
                 for _, (obs, action) in enumerate(tqdmDataLoader):
                     # Perform training steps
                     optimizer.zero_grad()
-                    network_without_ddp.set_actions(
-                        utils.dict_to_device(action, self.device)
-                    )
-                    network_state = batched_space_sampler(
-                        network_without_ddp._state_space,
-                        batch_size=self.args["batch_size"],
-                    )
-                    network_state = np_to_tensor(network_state)
-                    if self.args["using_proprioception"]:
-                        obs = self.calc_fk(obs)
-                    obs = utils.dict_to_device(obs, self.device)
-                    network_state = utils.dict_to_device(network_state, self.device)
-                    output_actions, network_state = network(obs, network_state)
+                    action = action_tokenizer.tokenize(action).flatten(0, 2).cuda()
+                    img = obs["image"].cuda()
+                    lang = obs["natural_language_embedding"]
+                    # if self.args["using_proprioception"]:
+                    #     obs = self.calc_fk(obs)
+                    # obs = utils.dict_to_device(obs, self.device)
+                    # network_state = utils.dict_to_device(network_state, self.device)
+                    output_actions = network(img, lang).flatten(0, 2)
 
-                    loss = network_without_ddp.get_actor_loss().mean()
+                    loss = F.cross_entropy(output_actions, action)
 
                     loss.backward()
                     optimizer.step()
@@ -306,28 +305,6 @@ class Trainer:
                     "epoch": e,
                 }
                 utils.save_on_master(checkpoint, checkpoint_filename)
-                if self.args["distributed"]:
-                    # Barrier synchronization for distributed training
-                    print(
-                        f"Process {torch.distributed.get_rank()} has reached the end of epoch {e}."
-                    )
-                    torch.distributed.barrier()
-                    self.val(
-                        network_without_ddp=network_without_ddp,
-                        epoch=e,
-                        val_dataset=self.val_dataset,
-                        sampler_val=self.sampler_val,
-                    )
-                    print(
-                        f"Process {torch.distributed.get_rank()} has reached the end of val."
-                    )
-                    torch.distributed.barrier()
-                else:
-                    self.val(
-                        network_without_ddp=network,
-                        epoch=e,
-                        val_dataset=self.val_dataset,
-                    )
             scheduler.step()
 
     def calc_fk(self, obs):
