@@ -10,7 +10,7 @@ from einops.layers.torch import Rearrange, Reduce
 
 from functools import partial
 
-from classifier_free_guidance_pytorch import (
+from cfgp import (
     TextConditioner,
     AttentionTextConditioner,
     classifier_free_guidance,

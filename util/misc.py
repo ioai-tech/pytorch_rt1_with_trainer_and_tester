@@ -30,6 +30,38 @@ if version.parse(torchvision.__version__) < version.parse("0.7"):
     from torchvision.ops.misc import _output_size
 
 
+def make_log_dir(log_dir):
+    """
+    making the log directory
+    the file structure of log dir should be:
+        [log_dir]
+            [log_0]
+            [log_1]
+            ...
+            [tensorboard_logs]
+                [log_0]
+                [log_1]
+                ...
+    Parameters:
+    - log_dir(str): root directory storing all the logs
+    Returns:
+    - checkpoint_dir(str): log directory for this sepcific training
+    - checkpoint_dir(str): tensorboard_dir directory for this sepcific training
+    """
+
+    id = str(time.time()).split(".")[0]
+    train_name = id
+    if not os.path.isdir(os.path.join(log_dir)):
+        os.mkdir(os.path.join(log_dir))
+    checkpoint_dir = os.path.join(log_dir, train_name)
+    if not os.path.isdir(os.path.join(log_dir, "tensorboard_logs")):
+        os.mkdir(os.path.join(log_dir, "tensorboard_logs"))
+    tensorboard_dir = os.path.join(log_dir, "tensorboard_logs", train_name)
+    if is_main_process():
+        os.mkdir(checkpoint_dir)
+    return checkpoint_dir, tensorboard_dir, train_name
+
+
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
     window or the global series average.
